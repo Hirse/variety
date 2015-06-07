@@ -202,10 +202,14 @@ var analyseDocument = function(document) {
     //translate unnamed object key from {_parent_name_}.{_index_} to {_parent_name_}.XX
     key = key.replace(/\.\d+/g,'.XX');
     if(typeof result[key] === 'undefined') {
-      result[key] = {};
+      result[key] = {
+          types: {},
+          values: {}
+      };
     }
     var type = varietyTypeOf(value);
-    result[key][type] = true;
+    result[key].types[type] = true;
+    result[key].values[value] = true;
   }
   return result;
 };
@@ -214,12 +218,19 @@ var mergeDocument = function(docResult, interimResults) {
   for (var key in docResult) {
     if(key in interimResults) {
       var existing = interimResults[key];
-      for(var type in docResult[key]) {
+      for (var type in docResult[key].types) {
         existing.types[type] = true;
+      }
+      for (var value in docResult[key].values) {
+        existing.values[value] = true;
       }
       existing.totalOccurrences = existing.totalOccurrences + 1;
     } else {
-      interimResults[key] = {'types':docResult[key],'totalOccurrences':1};
+      interimResults[key] = {
+        'types': docResult[key].types,
+        'values': docResult[key].values,
+        'totalOccurrences': 1
+      };
     }
   }
 };
@@ -238,7 +249,10 @@ var convertResults = function(interimResults, documentsCount) {
     var entry = interimResults[key];
     varietyResults.push({
         '_id': {'key':key},
-        'value': {'types':getKeys(entry.types)},
+        'value': {
+          'types': getKeys(entry.types),
+          'values': getKeys(entry.values)
+        },
         'totalOccurrences': entry.totalOccurrences,
         'percentContaining': entry.totalOccurrences * 100 / documentsCount
     });
@@ -291,7 +305,7 @@ if(config.persistResults) {
 }
 
 var createAsciiTable = function(results) {
-  var headers = ['key', 'types', 'occurrences', 'percents'];
+  var headers = ['key', 'values', 'types', 'occurrences', 'percents'];
   // return the number of decimal places or 1, if the number is int (1.23=>2, 100=>1, 0.1415=>4)
   var significantDigits = function(value) {
     var res = value.toString().match(/^[0-9]+\.([0-9]+)$/);
@@ -301,7 +315,11 @@ var createAsciiTable = function(results) {
   var maxDigits = varietyResults.map(function(value){return significantDigits(value.percentContaining);}).reduce(function(acc,val){return acc>val?acc:val;});
 
   var rows = results.map(function(row) {
-    return [row._id.key, row.value.types, row.totalOccurrences, row.percentContaining.toFixed(maxDigits)];
+    var values = row.value.values.toString();
+    if (values.length > 30) {
+      values = values.substring(0, 27) + '...';
+    }
+    return [row._id.key, values, row.value.types, row.totalOccurrences, row.percentContaining.toFixed(maxDigits)];
   });
   var table = [headers, headers.map(function(){return '';})].concat(rows);
   var colMaxWidth = function(arr, index) {return Math.max.apply(null, arr.map(function(row){return row[index].toString().length;}));};

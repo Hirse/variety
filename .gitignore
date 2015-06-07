@@ -3,3 +3,6 @@
 # intellij idea project files
 *.iml
 *.ipr
+
+# Brackets editor config
+.brackets.json
