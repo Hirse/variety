@@ -209,7 +209,8 @@ var analyseDocument = function(document) {
     }
     var type = varietyTypeOf(value);
     result[key].types[type] = true;
-    result[key].values[value] = true;
+    var displayValue = type === 'Object' ? JSON.stringify(value) : value;
+    result[key].values[displayValue] = true;
   }
   return result;
 };
